@@ -8,37 +8,53 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Pobranie repozytorium
       - name: Pobierz repozytorium
         uses: actions/checkout@v4
 
+      # 2. Java 25 — wymagana przez Velocity 4.x
       - name: Ustaw Java 25
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '25'
+          cache: maven
 
+      # 3. Rozpakowanie poprawionego projektu
       - name: Rozpakuj projekt
         run: |
-          unzip -o "hub-velocity-1.0.0-poprawiony-final.zip" -d project
+          unzip -o "hub-velocity-1.0.0-FIX-POM.zip" -d project
 
+      # 4. Znalezienie pom.xml
       - name: Znajdz pom.xml
         run: |
           POM=$(find "$GITHUB_WORKSPACE/project" -name pom.xml -type f | head -n 1)
 
           if [ -z "$POM" ]; then
             echo "BLAD: Nie znaleziono pom.xml!"
-            find "$GITHUB_WORKSPACE/project" -maxdepth 4 -type f
+            echo "Zawartosc projektu:"
+            find "$GITHUB_WORKSPACE/project" -maxdepth 5 -type f
             exit 1
           fi
 
-          echo "Znaleziono: $POM"
+          echo "Znaleziono pom.xml:"
+          echo "$POM"
+
           echo "POM=$POM" >> "$GITHUB_ENV"
 
+      # 5. Sprawdzenie POM
+      - name: Sprawdz konfiguracje Maven
+        run: |
+          echo "Uzywany POM:"
+          cat "$POM"
+
+      # 6. Budowanie pluginu
       - name: Zbuduj plugin
         run: |
           mvn -f "$POM" clean package
 
-      - name: Sprawdz velocity-plugin.json
+      # 7. Wyszukanie JAR
+      - name: Znajdz JAR
         run: |
           JAR=$(find "$GITHUB_WORKSPACE/project" -path '*/target/*.jar' -type f | head -n 1)
 
@@ -47,11 +63,40 @@ jobs:
             exit 1
           fi
 
-          echo "Znaleziony JAR: $JAR"
-          unzip -l "$JAR" | grep "velocity-plugin.json"
+          echo "Znaleziony JAR:"
+          echo "$JAR"
 
+          echo "JAR=$JAR" >> "$GITHUB_ENV"
+
+      # 8. Sprawdzenie velocity-plugin.json
+      - name: Sprawdz velocity-plugin.json
+        run: |
+          echo "Sprawdzam plugin: $JAR"
+
+          if unzip -l "$JAR" | grep -q "velocity-plugin.json"; then
+            echo ""
+            echo "======================================"
+            echo "SUKCES: velocity-plugin.json istnieje!"
+            echo "Plugin jest poprawnie zbudowany."
+            echo "======================================"
+          else
+            echo ""
+            echo "======================================"
+            echo "BLAD: Brak velocity-plugin.json!"
+            echo "======================================"
+            exit 1
+          fi
+
+      # 9. Pokazanie zawartosci JAR
+      - name: Pokaz zawartosc JAR
+        run: |
+          echo "Zawartosc pluginu:"
+          unzip -l "$JAR"
+
+      # 10. Udostepnienie gotowego JAR jako Artifact
       - name: Udostepnij JAR
         uses: actions/upload-artifact@v4
         with:
           name: hub-velocity
           path: 'project/**/target/*.jar'
+          if-no-files-found: error
