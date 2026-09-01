@@ -17,24 +17,51 @@ jobs:
           distribution: temurin
           java-version: '25'
 
-      - name: Znajdz pom.xml
+      - name: Znajdz projekt Maven
         run: |
-          POM=$(find "$GITHUB_WORKSPACE" -name pom.xml -type f | head -n 1)
+          echo "Aktualny katalog:"
+          pwd
+          echo "Zawartosc:"
+          ls -la
+
+          POM=$(find . -name pom.xml -type f | head -n 1)
+
+          if [ -z "$POM" ]; then
+            echo "BLAD: Nie znaleziono pom.xml!"
+            exit 1
+          fi
+
           echo "Znaleziono: $POM"
-          echo "POM=$POM" >> "$GITHUB_ENV"
+          PROJECT_DIR=$(dirname "$POM")
+
+          echo "Katalog projektu: $PROJECT_DIR"
+          cd "$PROJECT_DIR"
+
+          echo "Zawartosc projektu:"
+          ls -la
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Zbuduj plugin
         run: |
-          mvn -f "$POM" clean package
+          cd "$PROJECT_DIR"
+          mvn clean package
 
       - name: Sprawdz velocity-plugin.json
         run: |
-          JAR=$(find "$GITHUB_WORKSPACE" -path '*/target/hub-velocity-1.0.0.jar' -type f | head -n 1)
-          echo "JAR: $JAR"
-          unzip -l "$JAR" | grep 'velocity-plugin.json'
+          JAR=$(find "$PROJECT_DIR" -path '*/target/*.jar' -type f | head -n 1)
+
+          if [ -z "$JAR" ]; then
+            echo "BLAD: Nie znaleziono JAR!"
+            exit 1
+          fi
+
+          echo "Znaleziony JAR: $JAR"
+          echo "Zawartosc JAR:"
+          unzip -l "$JAR" | grep "velocity-plugin.json"
 
       - name: Udostepnij JAR
         uses: actions/upload-artifact@v4
         with:
-          name: hub-velocity-1.0.0
-          path: '**/target/hub-velocity-1.0.0.jar'
+          name: hub-velocity
+          path: '**/target/*.jar'
