@@ -19,16 +19,17 @@ jobs:
 
       - name: Znajdz pom.xml
         run: |
-          POM=$(find . -name pom.xml -type f | head -n 1)
+          POM=$(find "$GITHUB_WORKSPACE" -name pom.xml -type f | head -n 1)
           echo "Znaleziono: $POM"
           echo "POM=$POM" >> "$GITHUB_ENV"
 
       - name: Zbuduj plugin
-        run: mvn -f "$POM" clean package
+        run: |
+          mvn -f "$POM" clean package
 
       - name: Sprawdz velocity-plugin.json
         run: |
-          JAR=$(find . -path '*/target/hub-velocity-1.0.0.jar' -type f | head -n 1)
+          JAR=$(find "$GITHUB_WORKSPACE" -path '*/target/hub-velocity-1.0.0.jar' -type f | head -n 1)
           echo "JAR: $JAR"
           unzip -l "$JAR" | grep 'velocity-plugin.json'
 
